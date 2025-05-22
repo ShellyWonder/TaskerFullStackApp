@@ -1,0 +1,21 @@
+﻿<div class="alert @CssClass border border-dark">
+    <h4>@Title</h4>
+    <div>@DisplayMessage</div>
+    <div>@Warning</div>
+</div>
+
+@code {
+    // This component is used to display a message passed from the parent component.
+    [Parameter, EditorRequired]
+    public string DisplayMessage { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Warning { get; set; } = string.Empty;
+
+    //css class to apply to the message box
+    [Parameter]
+    public string CssClass { get; set; } = "alert-success";
+}

@@ -1,0 +1,48 @@
+﻿@*TaskerLineComponent *@
+
+<div class="d-flex flex-row">
+    <div>
+        <InputCheckbox @bind-Value="Item!.IsComplete" @bind-Value:after="UpdateItemAsync"/>
+    </div>
+    <div class="px-2 flex-grow-1 @GetCompletionClass()">
+        @Item.Name
+    </div>
+    <div><a @onclick="DeleteItemAsync"><i class="bi bi-trash-fill text-danger"></i></a></div>
+</div>
+
+
+@code {
+        #region PARAMETERS
+        [Parameter, EditorRequired]
+        public TaskerItem? Item { get; set; } 
+
+        [Parameter]
+        public EventCallback<TaskerItem> OnDeleteCallback { get; set; } = default!;
+        
+        [Parameter]
+        public EventCallback<TaskerItem> OnCompleteCallback { get; set; } = default!;
+    #endregion
+
+        #region METHODS
+    private async Task DeleteItemAsync()
+    {
+        if (Item != null)
+        {
+            await OnDeleteCallback.InvokeAsync(Item);
+        }
+    }
+
+    private string GetCompletionClass()
+    {
+        return Item!.IsComplete ? "complete" : "";
+    }
+
+    private async Task UpdateItemAsync()
+    {
+        if (Item != null)
+        {
+            await OnCompleteCallback.InvokeAsync(Item);
+        }
+    }
+    #endregion
+}

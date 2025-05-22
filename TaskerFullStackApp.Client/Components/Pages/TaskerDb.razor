@@ -1,0 +1,113 @@
+﻿@page "/tasker-db"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using Microsoft.AspNetCore.Authorization
+@using TaskerFullStackApp.Client.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime JS
+@rendermode InteractiveWebAssembly
+
+@attribute [Authorize]
+<PageTitle>Tasks</PageTitle>
+<div class="d-flex align-items-center justify-content-center mt-5">
+    <div class="task p-5">
+        <div class="p-2 text-center mb-3">
+            <img src="/img/Tasker_600.png" width="300" />
+        </div>
+        <EditForm Model="ti" OnValidSubmit="AddTaskAsync">
+            <DataAnnotationsValidator />
+            <div class="d-flex flex-row gap-2">
+                <InputText @ref="TextBoxTask" class="form-control" placeholder="Enter a task" @bind-Value="ti.Name" />
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+            <div class="pt-1">
+                <ValidationMessage For="() => ti.Name" />
+            </div>
+        </EditForm>
+        <div>
+            <hr />
+            <div class="vstack">
+                @foreach (var lineItem in taskerItems)
+                {
+                    <TaskerLineComponent Item="lineItem" OnDeleteCallback="@DeleteTask" OnCompleteCallback="@UpdateTask" />
+                }
+
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    #region VARIABLES
+    //model instance
+    private TaskerItem ti = new();
+    private List<TaskerItem> taskerItems = new();
+
+    private InputText? TextBoxTask { get; set; }
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {   //Puts focus on the input box after the component is rendered
+            await TextBoxTask!.Element!.Value.FocusAsync();
+
+            //load items from local storage
+            await LoadListAsync();
+            StateHasChanged(); //trigger a re-render of the component
+        }
+    }
+    private async Task LoadListAsync()
+    {
+        try
+        {
+            string? taskerItemsJson = await JS.InvokeAsync<string>("localStorage.getItem", "TaskerList") ?? "[]";
+            taskerItems = JsonSerializer.Deserialize<List<TaskerItem>>(taskerItemsJson);
+        }
+        catch (Exception)
+        {
+
+            taskerItems = new List<TaskerItem>();
+            await SaveListAsync();
+        }
+    }
+
+    #region CRUD METHODS
+    private async Task AddTaskAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ti.Name))
+        {
+            return;
+        }
+        taskerItems.Add(new TaskerItem
+        {
+            Id = Guid.NewGuid(),
+            Name = ti.Name,
+        });
+        ti.Name = string.Empty;
+        await SaveListAsync();
+        await TextBoxTask!.Element!.Value.FocusAsync();
+    }
+
+    private async Task SaveListAsync()
+    {
+        string? taskerItemsJson = JsonSerializer.Serialize(taskerItems);
+        await JS.InvokeVoidAsync("localStorage.setItem", "TaskerList", taskerItemsJson);
+
+    }
+
+    private async Task DeleteTask(TaskerItem item)
+    {
+        taskerItems.Remove(item);
+        await SaveListAsync();
+    }
+    private async Task UpdateTask(TaskerItem item)
+    {
+        //save items to local storage
+        await SaveListAsync();
+    }
+    #endregion
+}

@@ -1,0 +1,4 @@
+﻿/*TaskerLineComponent.razor.css*/
+.complete {
+    text-decoration: line-through;
+}
