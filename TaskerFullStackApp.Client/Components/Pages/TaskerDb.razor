@@ -5,6 +5,7 @@
 @using TaskerFullStackApp.Client.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IJSRuntime JS
+@inject HttpClient _http
 @rendermode InteractiveWebAssembly
 
 @attribute [Authorize]
@@ -45,6 +46,7 @@
     private InputText? TextBoxTask { get; set; }
     #endregion
 
+    #region LIFE CYCLE METHODS
     protected override async Task OnInitializedAsync()
     {
     }
@@ -55,59 +57,82 @@
         {   //Puts focus on the input box after the component is rendered
             await TextBoxTask!.Element!.Value.FocusAsync();
 
-            //load items from local storage
+            //load items from db
             await LoadListAsync();
             StateHasChanged(); //trigger a re-render of the component
         }
     }
-    private async Task LoadListAsync()
+    #endregion
+
+    #region METHODS
+    public async Task LoadListAsync()
     {
         try
         {
-            string? taskerItemsJson = await JS.InvokeAsync<string>("localStorage.getItem", "TaskerList") ?? "[]";
-            taskerItems = JsonSerializer.Deserialize<List<TaskerItem>>(taskerItemsJson);
+            HttpResponseMessage response = await _http.GetAsync("api/TaskerItem");
+            response.EnsureSuccessStatusCode();
+            //parse the JSON response into a list of TaskerItem objects
+            taskerItems = await response.Content.ReadFromJsonAsync<List<TaskerItem>>() ?? [];
+            StateHasChanged();
         }
         catch (Exception)
         {
 
             taskerItems = new List<TaskerItem>();
-            await SaveListAsync();
         }
     }
 
     #region CRUD METHODS
-    private async Task AddTaskAsync()
+    public async Task AddTaskAsync()
     {
-        if (string.IsNullOrWhiteSpace(ti.Name))
+        //generate a new GUID for the task
+        ti.Id = Guid.NewGuid();
+        try
         {
-            return;
+            HttpResponseMessage responseMessage = await _http.PostAsJsonAsync("api/taskerItem", ti);
+            ti = new();
+            //reload the list from db
+            await LoadListAsync(); 
+
         }
-        taskerItems.Add(new TaskerItem
+        catch (Exception)
         {
-            Id = Guid.NewGuid(),
-            Name = ti.Name,
-        });
-        ti.Name = string.Empty;
-        await SaveListAsync();
-        await TextBoxTask!.Element!.Value.FocusAsync();
+            //places focus on the input box again
+            await TextBoxTask!.Element!.Value.FocusAsync(); 
+        }
     }
 
-    private async Task SaveListAsync()
+    private async void DeleteTask(TaskerItem item)
     {
-        string? taskerItemsJson = JsonSerializer.Serialize(taskerItems);
-        await JS.InvokeVoidAsync("localStorage.setItem", "TaskerList", taskerItemsJson);
-
-    }
-
-    private async Task DeleteTask(TaskerItem item)
-    {
-        taskerItems.Remove(item);
-        await SaveListAsync();
+        try
+        {
+            string route = $"api/TaskerItem/{item.Id}";
+            HttpResponseMessage response = await _http.DeleteAsync(route);
+            response.EnsureSuccessStatusCode();
+            await LoadListAsync(); //reload the list from db
+        }
+        catch (Exception)
+        {
+            
+            throw;
+        }
     }
     private async Task UpdateTask(TaskerItem item)
     {
-        //save items to local storage
-        await SaveListAsync();
+        try
+        {
+            string route = $"api/TaskerItem/{item.Id}";
+            HttpResponseMessage response = await _http.PutAsJsonAsync(route, item);
+            response.EnsureSuccessStatusCode();
+            //reload the list from db
+            await LoadListAsync(); 
+        }
+        catch (Exception)
+        {
+            
+            throw;
+        }
     }
+    #endregion
     #endregion
 }
